@@ -35,3 +35,4 @@ externalPort = 3000
 
 [userenv.shared]
 DISCORD_GUILD_ID = "1504131779475406848"
+DISCORD_ENABLED = "true"
