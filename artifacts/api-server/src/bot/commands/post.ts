@@ -58,15 +58,10 @@ const execute = async (interaction: ChatInputCommandInteraction) => {
   const buttonId = `get_image_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
   imageStore.set(buttonId, imageUrl);
 
-  const vitalFile = new AttachmentBuilder(VITAL_AVATAR_PATH, { name: "vital-avatar.png" });
-
   const embedMain = new EmbedBuilder()
     .setDescription(caption)
     .setImage(imageUrl)
     .setColor(0x5865f2);
-
-  const embedBanner = new EmbedBuilder()
-    .setImage("attachment://vital-avatar.png");
 
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
@@ -76,10 +71,12 @@ const execute = async (interaction: ChatInputCommandInteraction) => {
   );
 
   await interaction.reply({
-    embeds: [embedMain, embedBanner],
+    embeds: [embedMain],
     components: [row],
-    files: [vitalFile],
   });
+
+  const vitalFile = new AttachmentBuilder(VITAL_AVATAR_PATH, { name: "vital-avatar.png" });
+  await interaction.followUp({ files: [vitalFile] });
 };
 
 export const postCommand: BotCommand = { data, execute };
