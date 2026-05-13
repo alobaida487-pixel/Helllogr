@@ -98,7 +98,8 @@ const execute = async (interaction: ChatInputCommandInteraction) => {
   });
 
   const vitalFile = new AttachmentBuilder(VITAL_AVATAR_PATH, { name: "vital-avatar.png" });
-  await interaction.channel?.send({ files: [vitalFile] });
+  const ch = interaction.channel;
+  if (ch && "send" in ch) await (ch as { send: (opts: unknown) => Promise<unknown> }).send({ files: [vitalFile] });
 };
 
 export const postCommand: BotCommand = { data, execute };

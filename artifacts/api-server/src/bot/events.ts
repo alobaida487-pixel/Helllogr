@@ -1,14 +1,34 @@
 import {
   Events,
   type Interaction,
+  type Message,
   EmbedBuilder,
+  AttachmentBuilder,
 } from "discord.js";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { client, commands } from "./client.js";
 import { imageStore } from "./commands/post.js";
 import { logger } from "../lib/logger.js";
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const VITAL_AVATAR_PATH = path.join(__dirname, "public", "vital-avatar.png");
+
 client.on(Events.ClientReady, (readyClient) => {
   logger.info({ tag: readyClient.user.tag }, "Discord bot is ready");
+});
+
+client.on(Events.MessageCreate, async (message: Message) => {
+  if (message.author.bot) return;
+  if (message.content.trim().toLowerCase() !== "khat") return;
+
+  try {
+    await message.delete().catch(() => undefined);
+    const vitalFile = new AttachmentBuilder(VITAL_AVATAR_PATH, { name: "vital-avatar.png" });
+    if ("send" in message.channel) await (message.channel as { send: (opts: unknown) => Promise<unknown> }).send({ files: [vitalFile] });
+  } catch (err) {
+    logger.error({ err }, "Failed to send khat");
+  }
 });
 
 client.on(Events.InteractionCreate, async (interaction: Interaction) => {
