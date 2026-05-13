@@ -4,10 +4,16 @@ import {
   ButtonBuilder,
   ButtonStyle,
   EmbedBuilder,
+  AttachmentBuilder,
   PermissionFlagsBits,
   type ChatInputCommandInteraction,
 } from "discord.js";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { type BotCommand } from "../client.js";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const VITAL_AVATAR_PATH = path.join(__dirname, "public", "vital-avatar.png");
 
 export const imageStore = new Map<string, string>();
 
@@ -52,10 +58,15 @@ const execute = async (interaction: ChatInputCommandInteraction) => {
   const buttonId = `get_image_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
   imageStore.set(buttonId, imageUrl);
 
-  const embed = new EmbedBuilder()
+  const vitalFile = new AttachmentBuilder(VITAL_AVATAR_PATH, { name: "vital-avatar.png" });
+
+  const embedMain = new EmbedBuilder()
     .setDescription(caption)
     .setImage(imageUrl)
     .setColor(0x5865f2);
+
+  const embedBanner = new EmbedBuilder()
+    .setImage("attachment://vital-avatar.png");
 
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
@@ -64,7 +75,11 @@ const execute = async (interaction: ChatInputCommandInteraction) => {
       .setStyle(ButtonStyle.Primary),
   );
 
-  await interaction.reply({ embeds: [embed], components: [row] });
+  await interaction.reply({
+    embeds: [embedMain, embedBanner],
+    components: [row],
+    files: [vitalFile],
+  });
 };
 
 export const postCommand: BotCommand = { data, execute };
