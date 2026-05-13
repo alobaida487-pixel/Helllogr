@@ -52,6 +52,10 @@ export async function registerCommands(commandList: BotCommand[]) {
   const guildId = process.env["DISCORD_GUILD_ID"];
 
   if (guildId) {
+    // حذف الأوامر العالمية القديمة
+    await rest.put(Routes.applicationCommands(appId), { body: [] });
+
+    // تسجيل الأوامر على السيرفر فقط (فوري)
     await rest.put(Routes.applicationGuildCommands(appId, guildId), {
       body: commandList.map((c) => c.data.toJSON()),
     });
