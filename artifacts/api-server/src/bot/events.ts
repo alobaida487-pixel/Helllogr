@@ -1,72 +1,14 @@
 import {
   Events,
   type Interaction,
-  type Message,
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
   EmbedBuilder,
-  PermissionFlagsBits,
 } from "discord.js";
 import { client, commands } from "./client.js";
+import { imageStore } from "./commands/post.js";
 import { logger } from "../lib/logger.js";
-
-const imageStore = new Map<string, string>();
 
 client.on(Events.ClientReady, (readyClient) => {
   logger.info({ tag: readyClient.user.tag }, "Discord bot is ready");
-});
-
-client.on(Events.MessageCreate, async (message: Message) => {
-  if (message.author.bot) return;
-  if (!message.guild) return;
-
-  const member = message.guild.members.cache.get(message.author.id)
-    ?? await message.guild.members.fetch(message.author.id).catch(() => null);
-
-  if (!member) return;
-
-  const isAdmin =
-    member.permissions.has(PermissionFlagsBits.Administrator) ||
-    member.permissions.has(PermissionFlagsBits.ManageMessages);
-
-  if (!isAdmin) return;
-
-  const attachment = message.attachments.find((a) => {
-    const ct = a.contentType ?? "";
-    return ct.startsWith("image/");
-  });
-
-  if (!attachment) return;
-
-  const imageUrl = attachment.url;
-  const caption = message.content.trim() || "صورك الأصلية:";
-
-  const buttonId = `get_image_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-  imageStore.set(buttonId, imageUrl);
-
-  const deleted = await message.delete().then(() => true).catch(() => false);
-
-  if (!deleted) {
-    await message.author.send(
-      "⚠️ البوت ما قدر يحذف رسالتك — تأكد أنك أعطيته صلاحية **Manage Messages** في القناة، أو احذفها يدوياً."
-    ).catch(() => undefined);
-  }
-
-  const embed = new EmbedBuilder()
-    .setDescription(caption)
-    .setImage(imageUrl)
-    .setColor(0x5865f2);
-
-  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder()
-      .setCustomId(buttonId)
-      .setLabel("📥 احصل على صورتك")
-      .setStyle(ButtonStyle.Primary),
-  );
-
-  await message.channel.send({ embeds: [embed], components: [row] });
-  logger.info({ imageUrl, channel: message.channelId }, "Image posted with button");
 });
 
 client.on(Events.InteractionCreate, async (interaction: Interaction) => {
@@ -86,10 +28,7 @@ client.on(Events.InteractionCreate, async (interaction: Interaction) => {
       .setImage(imageUrl)
       .setColor(0x57f287);
 
-    await interaction.reply({
-      embeds: [embed],
-      ephemeral: true,
-    });
+    await interaction.reply({ embeds: [embed], ephemeral: true });
     return;
   }
 

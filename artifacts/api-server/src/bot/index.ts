@@ -1,6 +1,7 @@
 import "./events.js";
 import { registerCommands } from "./client.js";
 import { broadcastCommand } from "./commands/broadcast.js";
+import { postCommand } from "./commands/post.js";
 import { logger } from "../lib/logger.js";
 
 export async function startBot() {
@@ -18,7 +19,7 @@ export async function startBot() {
   }
 
   try {
-    await registerCommands([broadcastCommand]);
+    await registerCommands([postCommand, broadcastCommand]);
     logger.info("Discord bot started successfully");
   } catch (err) {
     logger.error({ err }, "Failed to start Discord bot");
