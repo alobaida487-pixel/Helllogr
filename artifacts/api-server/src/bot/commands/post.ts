@@ -15,22 +15,33 @@ import { type BotCommand } from "../client.js";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const VITAL_AVATAR_PATH = path.join(__dirname, "public", "vital-avatar.png");
 
-export const imageStore = new Map<string, string>();
+export interface ImageEntry {
+  profileUrl: string;
+  bannerUrl: string;
+}
+
+export const imageStore = new Map<string, ImageEntry>();
 
 const data = new SlashCommandBuilder()
   .setName("post")
-  .setDescription("أرسل صورة مع زر يعطي الضاغط الصورة بخاص")
+  .setDescription("أرسل صورة بروفايل وبنر مع زر للتحميل")
   .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages)
   .addAttachmentOption((opt) =>
     opt
-      .setName("image")
-      .setDescription("الصورة التي تريد نشرها")
+      .setName("profile")
+      .setDescription("صورة البروفايل")
+      .setRequired(true),
+  )
+  .addAttachmentOption((opt) =>
+    opt
+      .setName("banner")
+      .setDescription("صورة البنر")
       .setRequired(true),
   )
   .addStringOption((opt) =>
     opt
       .setName("caption")
-      .setDescription("نص يظهر فوق الصورة (اختياري)")
+      .setDescription("نص يظهر فوق الصور (اختياري)")
       .setRequired(false),
   )
   .addStringOption((opt) =>
@@ -41,26 +52,37 @@ const data = new SlashCommandBuilder()
   ) as SlashCommandBuilder;
 
 const execute = async (interaction: ChatInputCommandInteraction) => {
-  const attachment = interaction.options.getAttachment("image", true);
+  const profileAttachment = interaction.options.getAttachment("profile", true);
+  const bannerAttachment = interaction.options.getAttachment("banner", true);
   const caption = interaction.options.getString("caption") ?? "صورك الأصلية:";
   const buttonLabel = interaction.options.getString("button_label") ?? "📥 احصل على صورتك";
 
-  const ct = attachment.contentType ?? "";
-  if (!ct.startsWith("image/")) {
-    await interaction.reply({
-      content: "❌ الملف المرفق ليس صورة. أرفق صورة بصيغة PNG أو JPG أو GIF.",
-      ephemeral: true,
-    });
-    return;
+  for (const att of [profileAttachment, bannerAttachment]) {
+    if (!att.contentType?.startsWith("image/")) {
+      await interaction.reply({
+        content: "❌ أحد الملفات المرفقة ليس صورة.",
+        ephemeral: true,
+      });
+      return;
+    }
   }
 
-  const imageUrl = attachment.url;
   const buttonId = `get_image_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-  imageStore.set(buttonId, imageUrl);
+  imageStore.set(buttonId, {
+    profileUrl: profileAttachment.url,
+    bannerUrl: bannerAttachment.url,
+  });
 
-  const embedMain = new EmbedBuilder()
+  const embedCaption = new EmbedBuilder()
     .setDescription(caption)
-    .setImage(imageUrl)
+    .setColor(0x5865f2);
+
+  const embedProfile = new EmbedBuilder()
+    .setImage(profileAttachment.url)
+    .setColor(0x5865f2);
+
+  const embedBanner = new EmbedBuilder()
+    .setImage(bannerAttachment.url)
     .setColor(0x5865f2);
 
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
@@ -71,7 +93,7 @@ const execute = async (interaction: ChatInputCommandInteraction) => {
   );
 
   await interaction.reply({
-    embeds: [embedMain],
+    embeds: [embedCaption, embedProfile, embedBanner],
     components: [row],
   });
 

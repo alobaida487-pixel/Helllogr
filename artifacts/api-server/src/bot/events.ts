@@ -13,9 +13,9 @@ client.on(Events.ClientReady, (readyClient) => {
 
 client.on(Events.InteractionCreate, async (interaction: Interaction) => {
   if (interaction.isButton()) {
-    const imageUrl = imageStore.get(interaction.customId);
+    const entry = imageStore.get(interaction.customId);
 
-    if (!imageUrl) {
+    if (!entry) {
       await interaction.reply({
         content: "❌ انتهت صلاحية هذه الصورة.",
         ephemeral: true,
@@ -23,12 +23,26 @@ client.on(Events.InteractionCreate, async (interaction: Interaction) => {
       return;
     }
 
-    const embed = new EmbedBuilder()
-      .setDescription("هذه صورتك الأصلية 🖼️")
-      .setImage(imageUrl)
+    const embedProfile = new EmbedBuilder()
+      .setDescription("🖼️ صورة البروفايل:")
+      .setImage(entry.profileUrl)
       .setColor(0x57f287);
 
-    await interaction.reply({ embeds: [embed], ephemeral: true });
+    const embedBanner = new EmbedBuilder()
+      .setDescription("🖼️ صورة البنر:")
+      .setImage(entry.bannerUrl)
+      .setColor(0x57f287);
+
+    await interaction.reply({
+      embeds: [embedProfile],
+      ephemeral: true,
+    });
+
+    await interaction.followUp({
+      embeds: [embedBanner],
+      ephemeral: true,
+    });
+
     return;
   }
 
