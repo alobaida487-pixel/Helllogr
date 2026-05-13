@@ -45,9 +45,12 @@ client.on(Events.MessageCreate, async (message: Message) => {
   const buttonId = `get_image_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
   imageStore.set(buttonId, imageUrl);
 
-  try {
-    await message.delete().catch(() => undefined);
-  } catch {
+  const deleted = await message.delete().then(() => true).catch(() => false);
+
+  if (!deleted) {
+    await message.author.send(
+      "⚠️ البوت ما قدر يحذف رسالتك — تأكد أنك أعطيته صلاحية **Manage Messages** في القناة، أو احذفها يدوياً."
+    ).catch(() => undefined);
   }
 
   const embed = new EmbedBuilder()
