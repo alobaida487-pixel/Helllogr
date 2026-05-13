@@ -49,9 +49,17 @@ export async function registerCommands(commandList: BotCommand[]) {
     return;
   }
 
-  await rest.put(Routes.applicationCommands(appId), {
-    body: commandList.map((c) => c.data.toJSON()),
-  });
+  const guildId = process.env["DISCORD_GUILD_ID"];
 
-  logger.info({ count: commandList.length }, "Slash commands registered globally");
+  if (guildId) {
+    await rest.put(Routes.applicationGuildCommands(appId, guildId), {
+      body: commandList.map((c) => c.data.toJSON()),
+    });
+    logger.info({ count: commandList.length, guildId }, "Slash commands registered for guild (instant)");
+  } else {
+    await rest.put(Routes.applicationCommands(appId), {
+      body: commandList.map((c) => c.data.toJSON()),
+    });
+    logger.info({ count: commandList.length }, "Slash commands registered globally (up to 1 hour delay)");
+  }
 }
