@@ -1,5 +1,6 @@
 import {
   Events,
+  MessageFlags,
   type Interaction,
   type Message,
   EmbedBuilder,
@@ -12,7 +13,6 @@ import {
   TextInputBuilder,
   TextInputStyle,
   ChannelType,
-  ThreadAutoArchiveDuration,
   PermissionFlagsBits,
 } from "discord.js";
 import path from "node:path";
@@ -27,69 +27,57 @@ const VITAL_AVATAR_PATH = path.join(__dirname, "public", "vital-avatar.png");
 const CONTROL_IMAGE_PATH = path.join(__dirname, "public", "control-panel.png");
 
 type Sendable = { send: (opts: unknown) => Promise<unknown> };
-
 function canSend(ch: unknown): ch is Sendable {
   return typeof ch === "object" && ch !== null && "send" in ch;
 }
 
-// --- Publish session store (category selected before opening modal) ---
-interface PublishSession {
-  category: string;
-  categoryLabel: string;
-}
+// --- Publish session store ---
+interface PublishSession { category: string; categoryLabel: string }
 const pendingPublishSessions = new Map<string, PublishSession>();
 
-// --- Publish server categories ---
+// --- Publish categories (no emojis) ---
 const PUBLISH_CATEGORIES = [
-  { label: "🎮 ألعاب فيديو",          value: "games",     description: "GTA، فورتنايت، ماينكرافت..." },
-  { label: "🕹️ قيمنق وإستريمنق",     value: "gaming",    description: "قيمرز وستريمرز" },
-  { label: "⚔️ ألعاب RPG وفانتازيا",  value: "rpg",       description: "RPG، أنمي، وفانتازيا" },
-  { label: "🌐 سيرفر عام",            value: "general",   description: "مجتمعات متنوعة وعامة" },
-  { label: "🎨 إبداع وتصميم",         value: "creative",  description: "فن وتصميم وإبداع" },
+  { label: "سيرفرات ألعاب فيديو",    value: "games",   description: "GTA، فورتنايت، ماينكرافت" },
+  { label: "سيرفرات قيمنق",          value: "gaming",  description: "قيمرز وستريمرز" },
+  { label: "سيرفرات RPG وفانتازيا",  value: "rpg",     description: "RPG والأنمي والفانتازيا" },
+  { label: "سيرفرات عامة",           value: "general", description: "مجتمعات متنوعة وعامة" },
+  { label: "سيرفرات إبداع وتصميم",   value: "creative",description: "فن وتصميم وإبداع" },
 ];
 
-// --- Nitro badge milestones (months) ---
-interface BadgeMilestone {
-  months: number;
-  name: string;
-  emoji: string;
-  color: number;
-}
+// --- Badge milestones ---
+interface BadgeMilestone { months: number; name: string; color: number }
 
 const NITRO_MILESTONES: BadgeMilestone[] = [
-  { months: 1,  name: "Bronze",   emoji: "🟠", color: 0xcd7f32 },
-  { months: 3,  name: "Silver",   emoji: "⚪", color: 0xc0c0c0 },
-  { months: 6,  name: "Gold",     emoji: "🟡", color: 0xffd700 },
-  { months: 12, name: "Platinum", emoji: "🔵", color: 0x00bfff },
-  { months: 24, name: "Diamond",  emoji: "💠", color: 0xb9f2ff },
-  { months: 36, name: "Emerald",  emoji: "🟢", color: 0x50c878 },
-  { months: 60, name: "Ruby",     emoji: "🔴", color: 0xe0115f },
-  { months: 72, name: "Opal",     emoji: "🌟", color: 0xa8c5da },
+  { months: 1,  name: "Bronze",   color: 0xcd7f32 },
+  { months: 3,  name: "Silver",   color: 0xc0c0c0 },
+  { months: 6,  name: "Gold",     color: 0xffd700 },
+  { months: 12, name: "Platinum", color: 0x00bfff },
+  { months: 24, name: "Diamond",  color: 0xb9f2ff },
+  { months: 36, name: "Emerald",  color: 0x50c878 },
+  { months: 60, name: "Ruby",     color: 0xe0115f },
+  { months: 72, name: "Opal",     color: 0xa8c5da },
 ];
 
-// --- Boost badge milestones (months) ---
 const BOOST_MILESTONES: BadgeMilestone[] = [
-  { months: 1,  name: "مستوى 1",  emoji: "🔷", color: 0x5865f2 },
-  { months: 2,  name: "مستوى 2",  emoji: "💠", color: 0x5865f2 },
-  { months: 3,  name: "مستوى 3",  emoji: "🔹", color: 0x5865f2 },
-  { months: 6,  name: "مستوى 4",  emoji: "⬡",  color: 0x57f287 },
-  { months: 9,  name: "مستوى 5",  emoji: "⬡",  color: 0x57f287 },
-  { months: 12, name: "مستوى 6",  emoji: "⬡",  color: 0xfee75c },
-  { months: 15, name: "مستوى 7",  emoji: "⬡",  color: 0xfee75c },
-  { months: 18, name: "مستوى 8",  emoji: "⬡",  color: 0xeb459e },
-  { months: 24, name: "مستوى 9",  emoji: "⬡",  color: 0xeb459e },
+  { months: 1,  name: "شهر 1",   color: 0x5865f2 },
+  { months: 2,  name: "شهر 2",   color: 0x5865f2 },
+  { months: 3,  name: "شهر 3",   color: 0x5865f2 },
+  { months: 6,  name: "شهر 6",   color: 0x57f287 },
+  { months: 9,  name: "شهر 9",   color: 0x57f287 },
+  { months: 12, name: "سنة 1",   color: 0xfee75c },
+  { months: 15, name: "شهر 15",  color: 0xfee75c },
+  { months: 18, name: "شهر 18",  color: 0xeb459e },
+  { months: 24, name: "سنتان",   color: 0xeb459e },
 ];
 
-function buildProgressBar(current: number, total: number, width = 12): string {
+function monthsToMs(m: number) { return m * 30.44 * 24 * 60 * 60 * 1000; }
+
+function progressBar(current: number, total: number, width = 12): string {
   const filled = Math.min(width, Math.round((current / total) * width));
   return "▰".repeat(filled) + "▱".repeat(width - filled);
 }
 
-function monthsToMs(months: number): number {
-  return months * 30.44 * 24 * 60 * 60 * 1000;
-}
-
-function formatDaysMonths(totalDays: number): string {
+function formatRemaining(totalDays: number): string {
   if (totalDays <= 0) return "وصلت!";
   const months = Math.floor(totalDays / 30);
   const days = totalDays % 30;
@@ -98,95 +86,70 @@ function formatDaysMonths(totalDays: number): string {
   return `${days} يوم`;
 }
 
-function addDateString(date: Date, months: number): string {
-  const d = new Date(date.getTime() + monthsToMs(months));
-  return d.toISOString().split("T")[0]!;
-}
-
-function buildBadgeEmbed(
-  sinceDate: Date,
-  milestones: BadgeMilestone[],
-  title: string,
-  type: string,
-): EmbedBuilder {
-  const now = Date.now();
-  const elapsedMs = now - sinceDate.getTime();
+function buildBadgeEmbed(sinceDate: Date, milestones: BadgeMilestone[], title: string): EmbedBuilder {
+  const elapsedMs = Date.now() - sinceDate.getTime();
   const elapsedMonths = elapsedMs / monthsToMs(1);
 
   let currentBadge: BadgeMilestone | null = null;
   let nextBadge: BadgeMilestone | null = null;
-
   for (const m of milestones) {
-    if (elapsedMonths >= m.months) {
-      currentBadge = m;
-    } else {
-      if (!nextBadge) nextBadge = m;
-    }
+    if (elapsedMonths >= m.months) currentBadge = m;
+    else if (!nextBadge) nextBadge = m;
   }
 
   const embed = new EmbedBuilder().setTitle(title).setColor(currentBadge?.color ?? 0x5865f2);
-
-  const badgesRow = milestones
-    .map((m) => {
-      const earned = elapsedMonths >= m.months;
-      return earned ? `${m.emoji}` : `▫️`;
-    })
-    .join(" ");
-
-  const labelRow = milestones
-    .map((m) => {
-      const mo = m.months >= 12 ? `${m.months / 12}س` : `${m.months}ش`;
-      return mo.padEnd(3);
-    })
-    .join(" ");
-
   const lines: string[] = [];
-  lines.push(`\`\`\`\n${badgesRow}\n${labelRow}\n\`\`\``);
 
-  if (currentBadge) {
-    lines.push(`🏅 **الشارة الحالية:** ${currentBadge.emoji} ${currentBadge.name}`);
-  } else {
-    lines.push(`🏅 **الشارة الحالية:** لا توجد بعد`);
-  }
+  // Badge timeline row
+  const badgeRow = milestones.map((m) => {
+    const label = m.months >= 12 ? `${m.months / 12}س` : `${m.months}ش`;
+    const earned = elapsedMonths >= m.months;
+    return `${earned ? "◆" : "◇"} ${label}`;
+  }).join("  ");
+  lines.push(`\`\`\`${badgeRow}\`\`\``);
+
+  lines.push(`**الشارة الحالية:** ${currentBadge?.name ?? "لا توجد بعد"}`);
 
   if (nextBadge) {
-    const remainingMonths = nextBadge.months - elapsedMonths;
-    const remainingDays = Math.ceil(remainingMonths * 30.44);
-    const progressInSegment = elapsedMonths - (currentBadge?.months ?? 0);
-    const segmentLength = nextBadge.months - (currentBadge?.months ?? 0);
-    const bar = buildProgressBar(progressInSegment, segmentLength);
-    const pct = Math.round((progressInSegment / segmentLength) * 100);
-    const nextDate = addDateString(sinceDate, nextBadge.months);
+    const progressInSeg = elapsedMonths - (currentBadge?.months ?? 0);
+    const segLen = nextBadge.months - (currentBadge?.months ?? 0);
+    const pct = Math.round((progressInSeg / segLen) * 100);
+    const remainDays = Math.ceil((nextBadge.months - elapsedMonths) * 30.44);
+    const nextDate = new Date(sinceDate.getTime() + monthsToMs(nextBadge.months))
+      .toISOString().split("T")[0];
 
-    lines.push(`\n📈 **التقدم نحو ${nextBadge.emoji} ${nextBadge.name}:**`);
-    lines.push(`\`${bar}\` ${pct}%`);
-    lines.push(`⏳ **الوقت المتبقي:** ${formatDaysMonths(remainingDays)}`);
-    lines.push(`📅 **التاريخ المتوقع:** \`${nextDate}\``);
+    lines.push(`\n**التقدم نحو ${nextBadge.name}:**`);
+    lines.push(`\`${progressBar(progressInSeg, segLen)}\` ${pct}%`);
+    lines.push(`**الوقت المتبقي:** ${formatRemaining(remainDays)}`);
+    lines.push(`**التاريخ المتوقع:** \`${nextDate}\``);
   } else {
-    lines.push(`\n✨ **وصلت لأعلى شارة! أنت في مستوى ${type} الأقصى.**`);
+    lines.push("\nوصلت لأعلى مستوى!");
   }
 
   embed.setDescription(lines.join("\n"));
-  embed.setFooter({ text: "🔒 هذه الرسالة مخفية ولا تظهر إلا لك" });
-
+  embed.setFooter({ text: "هذه الرسالة مخفية ولا تظهر إلا لك" });
   return embed;
 }
 
-// ─── Ready ────────────────────────────────────────────────────────────────────
-client.on(Events.ClientReady, (readyClient) => {
-  logger.info({ tag: readyClient.user.tag }, "Discord bot is ready");
+// ─── Error handler (prevents crash on unhandled Discord errors) ───────────────
+client.on(Events.Error, (err) => {
+  logger.error({ err }, "Discord client error");
 });
 
-// ─── Message Commands ─────────────────────────────────────────────────────────
+// ─── Ready ────────────────────────────────────────────────────────────────────
+client.on(Events.ClientReady, (rc) => {
+  logger.info({ tag: rc.user.tag }, "Discord bot is ready");
+});
+
+// ─── Message commands ─────────────────────────────────────────────────────────
 client.on(Events.MessageCreate, async (message: Message) => {
   if (message.author.bot) return;
-
   const content = message.content.trim().toLowerCase();
 
   if (content === "khat") {
     await message.delete().catch(() => undefined);
-    const vitalFile = new AttachmentBuilder(VITAL_AVATAR_PATH, { name: "vital-avatar.png" });
-    if (canSend(message.channel)) await message.channel.send({ files: [vitalFile] });
+    const f = new AttachmentBuilder(VITAL_AVATAR_PATH, { name: "vital-avatar.png" });
+    if (canSend(message.channel)) await message.channel.send({ files: [f] });
     return;
   }
 
@@ -211,28 +174,28 @@ client.on(Events.MessageCreate, async (message: Message) => {
       payload["files"] = [new AttachmentBuilder(CONTROL_IMAGE_PATH, { name: "control-panel.png" })];
     }
 
-    // Row 1 — Ticket menu
+    // Row 1 — Ticket menu (no emojis)
     const ticketMenu = new StringSelectMenuBuilder()
       .setCustomId("ticket_menu")
-      .setPlaceholder("🎫 اضغط هنا للتذكرة")
+      .setPlaceholder("اضغط هنا للتذكرة")
       .addOptions([
-        { label: "Ads",     value: "ticket_ads",     description: "نشر شات ، نشر برودكاست", emoji: "📢" },
-        { label: "Inquiry", value: "ticket_inquiry",  description: "استفسار ، اقتراح ، مشكلة", emoji: "❓" },
+        { label: "Ads",     value: "ticket_ads",     description: "نشر شات ، نشر برودكاست" },
+        { label: "Inquiry", value: "ticket_inquiry",  description: "استفسار ، اقتراح ، مشكلة" },
       ]);
 
-    // Row 2 — Publish categories menu
+    // Row 2 — Publish category menu (no emojis)
     const publishMenu = new StringSelectMenuBuilder()
       .setCustomId("publish_category_menu")
-      .setPlaceholder("🚀 اضغط هنا للنشر — اختر فئة سيرفرك")
+      .setPlaceholder("اضغط هنا للنشر — اختر فئة سيرفرك")
       .addOptions(PUBLISH_CATEGORIES);
 
-    // Row 3 — Badges menu
+    // Row 3 — Badges menu (no emojis)
     const badgesMenu = new StringSelectMenuBuilder()
       .setCustomId("badges_menu")
-      .setPlaceholder("🏅 شارات — عرض تقدم شارتك")
+      .setPlaceholder("شارات — عرض تقدم شارتك")
       .addOptions([
-        { label: "عرض تقدم شارة البوست",  value: "badge_boost",  description: "احسب كم تبقى لشارتك القادمة", emoji: "🔷" },
-        { label: "عرض تقدم شارة النيترو", value: "badge_nitro",  description: "تقدمك في شارات النيترو",        emoji: "🌟" },
+        { label: "عرض تقدم شارة البوست",  value: "badge_boost", description: "احسب كم تبقى لشارتك القادمة" },
+        { label: "عرض تقدم شارة النيترو", value: "badge_nitro", description: "تقدمك في شارات النيترو" },
       ]);
 
     payload["components"] = [
@@ -248,42 +211,99 @@ client.on(Events.MessageCreate, async (message: Message) => {
 
 // ─── Interactions ─────────────────────────────────────────────────────────────
 client.on(Events.InteractionCreate, async (interaction: Interaction) => {
+  try {
+    await handleInteraction(interaction);
+  } catch (err) {
+    logger.error({ err }, "Unhandled interaction error");
+  }
+});
 
-  // ── Ticket menu ──────────────────────────────────────────────────────────────
+async function handleInteraction(interaction: Interaction) {
+
+  // ── Ticket: create private channel ──────────────────────────────────────────
   if (interaction.isStringSelectMenu() && interaction.customId === "ticket_menu") {
     const isAds = interaction.values[0] === "ticket_ads";
-    const typeName = isAds ? "إعلانات" : "استفسار";
-    const channel = interaction.channel;
+    const typeName = isAds ? "اعلانات" : "استفسار";
 
-    if (
-      channel &&
-      (channel.type === ChannelType.GuildText || channel.type === ChannelType.GuildAnnouncement) &&
-      "threads" in channel
-    ) {
-      try {
-        const thread = await channel.threads.create({
-          name: `تذكرة-${typeName}-${interaction.user.username}`,
-          autoArchiveDuration: ThreadAutoArchiveDuration.OneDay,
-          reason: `Ticket by ${interaction.user.tag}`,
-        });
-        await thread.members.add(interaction.user.id);
-        await thread.send(
-          `مرحباً ${interaction.user} 👋\n\nتم فتح تذكرة **${typeName}**. سيتواصل معك أحد أعضاء الإدارة قريباً.`,
-        );
-        await interaction.reply({ content: `✅ تم فتح تذكرتك: ${thread}`, ephemeral: true });
-      } catch {
-        await interaction.reply({
-          content: "❌ فشل في فتح التذكرة. تأكد أن البوت لديه صلاحية **Manage Threads**.",
-          ephemeral: true,
-        });
-      }
-    } else {
-      await interaction.reply({ content: "❌ هذه القناة لا تدعم إنشاء المواضيع.", ephemeral: true });
+    if (!interaction.guild) {
+      await interaction.reply({ content: "❌ يعمل فقط داخل السيرفر.", flags: MessageFlags.Ephemeral });
+      return;
+    }
+
+    const config = getConfig(interaction.guild.id);
+
+    try {
+      const botMember = interaction.guild.members.me;
+      const ticketChannel = await interaction.guild.channels.create({
+        name: `ticket-${interaction.user.username.toLowerCase().replace(/\s+/g, "-")}`,
+        type: ChannelType.GuildText,
+        parent: config.ticketCategoryId ?? undefined,
+        permissionOverwrites: [
+          { id: interaction.guild.id,   deny:  [PermissionFlagsBits.ViewChannel] },
+          {
+            id: interaction.user.id,
+            allow: [
+              PermissionFlagsBits.ViewChannel,
+              PermissionFlagsBits.SendMessages,
+              PermissionFlagsBits.ReadMessageHistory,
+            ],
+          },
+          ...(botMember ? [{
+            id: botMember.id,
+            allow: [
+              PermissionFlagsBits.ViewChannel,
+              PermissionFlagsBits.SendMessages,
+              PermissionFlagsBits.ReadMessageHistory,
+              PermissionFlagsBits.ManageChannels,
+            ],
+          }] : []),
+        ],
+      });
+
+      const welcomeEmbed = new EmbedBuilder()
+        .setTitle(`تذكرة ${typeName}`)
+        .setDescription(
+          `مرحباً ${interaction.user}\n\nتم فتح تذكرتك من نوع **${typeName}**.\nسيتواصل معك أحد أعضاء الإدارة قريباً.\n\nلإغلاق التذكرة اضغط الزر أدناه.`
+        )
+        .setColor(0x5865f2)
+        .setTimestamp();
+
+      const closeBtn = new ButtonBuilder()
+        .setCustomId("close_ticket")
+        .setLabel("اغلاق التذكرة")
+        .setStyle(ButtonStyle.Danger);
+
+      await ticketChannel.send({
+        content: `${interaction.user}`,
+        embeds: [welcomeEmbed],
+        components: [new ActionRowBuilder<ButtonBuilder>().addComponents(closeBtn)],
+      });
+
+      await interaction.reply({
+        content: `تم فتح تذكرتك: ${ticketChannel}`,
+        flags: MessageFlags.Ephemeral,
+      });
+    } catch {
+      await interaction.reply({
+        content: "❌ فشل في إنشاء قناة التذكرة. تأكد أن البوت لديه صلاحية **Manage Channels**.",
+        flags: MessageFlags.Ephemeral,
+      });
     }
     return;
   }
 
-  // ── Publish category selected → save session, show confirm button ────────────
+  // ── Close ticket ─────────────────────────────────────────────────────────────
+  if (interaction.isButton() && interaction.customId === "close_ticket") {
+    const channel = interaction.channel;
+    if (!channel || channel.type !== ChannelType.GuildText) return;
+
+    await interaction.reply({ content: "سيتم حذف هذه التذكرة خلال 5 ثوانٍ..." });
+    await new Promise((r) => setTimeout(r, 5000));
+    await channel.delete("Ticket closed").catch(() => undefined);
+    return;
+  }
+
+  // ── Publish: select category → show confirm button ───────────────────────────
   if (interaction.isStringSelectMenu() && interaction.customId === "publish_category_menu") {
     const value = interaction.values[0]!;
     const found = PUBLISH_CATEGORIES.find((c) => c.value === value);
@@ -293,18 +313,18 @@ client.on(Events.InteractionCreate, async (interaction: Interaction) => {
 
     const confirmBtn = new ButtonBuilder()
       .setCustomId("confirm_publish_btn")
-      .setLabel("أدخل رابط الدعوة 🔗")
+      .setLabel("ادخل رابط الدعوة")
       .setStyle(ButtonStyle.Primary);
 
     await interaction.reply({
-      content: `✅ اخترت الفئة: **${categoryLabel}**\nاضغط الزر أدناه لإدخال رابط الدعوة:`,
+      content: `اخترت الفئة: **${categoryLabel}**\nاضغط الزر أدناه لإدخال رابط الدعوة:`,
       components: [new ActionRowBuilder<ButtonBuilder>().addComponents(confirmBtn)],
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
 
-  // ── Confirm publish button → show modal ──────────────────────────────────────
+  // ── Publish: confirm button → open modal ─────────────────────────────────────
   if (interaction.isButton() && interaction.customId === "confirm_publish_btn") {
     const modal = new ModalBuilder().setCustomId("publish_modal").setTitle("معلومات النشر");
     const inviteInput = new TextInputBuilder()
@@ -318,7 +338,7 @@ client.on(Events.InteractionCreate, async (interaction: Interaction) => {
     return;
   }
 
-  // ── Publish modal submit ──────────────────────────────────────────────────────
+  // ── Publish: modal submit ────────────────────────────────────────────────────
   if (interaction.isModalSubmit() && interaction.customId === "publish_modal") {
     const inviteLink = interaction.fields.getTextInputValue("invite_link").trim();
     const match = inviteLink.match(/discord(?:\.gg|app\.com\/invite)\/([a-zA-Z0-9-]+)/i);
@@ -326,12 +346,12 @@ client.on(Events.InteractionCreate, async (interaction: Interaction) => {
     if (!match) {
       await interaction.reply({
         content: "❌ رابط الدعوة غير صالح. مثال: https://discord.gg/abc123",
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
 
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
     const session = pendingPublishSessions.get(interaction.user.id);
     pendingPublishSessions.delete(interaction.user.id);
@@ -342,8 +362,8 @@ client.on(Events.InteractionCreate, async (interaction: Interaction) => {
       const guild = invite.guild;
 
       const descParts: string[] = [];
-      if (invite.memberCount) descParts.push(`👥 **الأعضاء:** ${invite.memberCount.toLocaleString("ar")}`);
-      if (categoryLabel)      descParts.push(`🏷️ **الفئة:** ${categoryLabel}`);
+      if (invite.memberCount) descParts.push(`الأعضاء: ${invite.memberCount.toLocaleString("ar")}`);
+      if (categoryLabel)      descParts.push(`الفئة: ${categoryLabel}`);
 
       const embed = new EmbedBuilder()
         .setTitle(guild?.name ?? "سيرفر")
@@ -352,12 +372,11 @@ client.on(Events.InteractionCreate, async (interaction: Interaction) => {
 
       const iconUrl = guild?.iconURL({ size: 256 });
       if (iconUrl) embed.setThumbnail(iconUrl);
-
       const bannerUrl = guild?.bannerURL({ size: 1024 });
       if (bannerUrl) embed.setImage(bannerUrl);
 
       const joinBtn = new ButtonBuilder()
-        .setLabel("دخول السيرفر 🔗")
+        .setLabel("دخول السيرفر")
         .setStyle(ButtonStyle.Link)
         .setURL(`https://discord.gg/${match[1]!}`);
 
@@ -369,7 +388,7 @@ client.on(Events.InteractionCreate, async (interaction: Interaction) => {
 
       const adsChannel = await client.channels.fetch(config.adsChannelId).catch(() => null);
       if (!adsChannel || !canSend(adsChannel)) {
-        await interaction.editReply("❌ لم يتم العثور على قناة النشر أو البوت ليس لديه صلاحية الإرسال فيها.");
+        await interaction.editReply("❌ لم يتم العثور على قناة النشر أو البوت ليس لديه صلاحية الإرسال.");
         return;
       }
 
@@ -377,7 +396,7 @@ client.on(Events.InteractionCreate, async (interaction: Interaction) => {
         embeds: [embed],
         components: [new ActionRowBuilder<ButtonBuilder>().addComponents(joinBtn)],
       });
-      await interaction.editReply(`✅ تم نشر سيرفرك في فئة **${categoryLabel}** بنجاح!`);
+      await interaction.editReply(`تم نشر سيرفرك في فئة **${categoryLabel}** بنجاح.`);
     } catch (err) {
       logger.error({ err }, "Failed to fetch invite");
       await interaction.editReply("❌ فشل في جلب معلومات السيرفر. تأكد أن الرابط صالح وغير منتهي الصلاحية.");
@@ -385,67 +404,55 @@ client.on(Events.InteractionCreate, async (interaction: Interaction) => {
     return;
   }
 
-  // ── Badges menu ───────────────────────────────────────────────────────────────
+  // ── Badges ───────────────────────────────────────────────────────────────────
   if (interaction.isStringSelectMenu() && interaction.customId === "badges_menu") {
     const value = interaction.values[0];
-
     if (!interaction.guild) {
-      await interaction.reply({ content: "❌ هذا الأمر يعمل فقط داخل السيرفر.", ephemeral: true });
+      await interaction.reply({ content: "❌ يعمل فقط داخل السيرفر.", flags: MessageFlags.Ephemeral });
       return;
     }
 
     const member = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
     if (!member) {
-      await interaction.reply({ content: "❌ تعذر جلب معلوماتك.", ephemeral: true });
+      await interaction.reply({ content: "❌ تعذر جلب معلوماتك.", flags: MessageFlags.Ephemeral });
       return;
     }
 
     const premiumSince = member.premiumSince;
-
     if (!premiumSince) {
-      const what = value === "badge_nitro" ? "نيترو/بوست" : "بوست";
       await interaction.reply({
-        content: `❌ لا يبدو أنك تبوست هذا السيرفر حالياً.\nشارات الـ${what} تعتمد على تاريخ بدء البوست.`,
-        ephemeral: true,
+        content:
+          "❌ لا يمكن حساب تقدم شارتك.\n" +
+          "شارات البوست والنيترو تُحسب بناءً على تاريخ البوست في هذا السيرفر.\n" +
+          "لكي تعمل هذه الميزة يجب أن تكون بوستر في هذا السيرفر.",
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
 
-    let embed: EmbedBuilder;
-    if (value === "badge_nitro") {
-      embed = buildBadgeEmbed(
-        premiumSince,
-        NITRO_MILESTONES,
-        `🌟 تقدم شارة النيترو — ${interaction.user.username}`,
-        "نيترو",
-      );
-    } else {
-      embed = buildBadgeEmbed(
-        premiumSince,
-        BOOST_MILESTONES,
-        `🔷 تقدم شارة البوست — ${interaction.user.username}`,
-        "بوست",
-      );
-    }
-
+    const isNitro = value === "badge_nitro";
+    const embed = buildBadgeEmbed(
+      premiumSince,
+      isNitro ? NITRO_MILESTONES : BOOST_MILESTONES,
+      isNitro
+        ? `تقدم شارة النيترو — ${interaction.user.username}`
+        : `تقدم شارة البوست — ${interaction.user.username}`,
+    );
     embed.setThumbnail(interaction.user.displayAvatarURL({ size: 128 }));
-    await interaction.reply({ embeds: [embed], ephemeral: true });
+    await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
     return;
   }
 
-  // ── Post image download buttons ───────────────────────────────────────────────
+  // ── Post: image download buttons ─────────────────────────────────────────────
   if (interaction.isButton()) {
     const entry = imageStore.get(interaction.customId);
-
     if (!entry) {
-      await interaction.reply({ content: "❌ انتهت صلاحية هذه الصورة.", ephemeral: true });
+      await interaction.reply({ content: "❌ انتهت صلاحية هذه الصورة.", flags: MessageFlags.Ephemeral });
       return;
     }
-
     const profileFile = new AttachmentBuilder(entry.profileUrl, { name: "profile.png" });
-    const bannerFile = new AttachmentBuilder(entry.bannerUrl, { name: "banner.png" });
-
-    await interaction.reply({ files: [profileFile, bannerFile], ephemeral: true });
+    const bannerFile  = new AttachmentBuilder(entry.bannerUrl,  { name: "banner.png" });
+    await interaction.reply({ files: [profileFile, bannerFile], flags: MessageFlags.Ephemeral });
     return;
   }
 
@@ -454,7 +461,7 @@ client.on(Events.InteractionCreate, async (interaction: Interaction) => {
 
   const command = commands.get(interaction.commandName);
   if (!command) {
-    await interaction.reply({ content: "❌ أمر غير معروف.", ephemeral: true });
+    await interaction.reply({ content: "❌ أمر غير معروف.", flags: MessageFlags.Ephemeral });
     return;
   }
 
@@ -462,11 +469,11 @@ client.on(Events.InteractionCreate, async (interaction: Interaction) => {
     await command.execute(interaction);
   } catch (err) {
     logger.error({ err, command: interaction.commandName }, "Command execution failed");
-    const errorMsg = "❌ حدث خطأ أثناء تنفيذ الأمر.";
+    const msg = "❌ حدث خطأ أثناء تنفيذ الأمر.";
     if (interaction.replied || interaction.deferred) {
-      await interaction.editReply(errorMsg).catch(() => undefined);
+      await interaction.editReply(msg).catch(() => undefined);
     } else {
-      await interaction.reply({ content: errorMsg, ephemeral: true }).catch(() => undefined);
+      await interaction.reply({ content: msg, flags: MessageFlags.Ephemeral }).catch(() => undefined);
     }
   }
-});
+}

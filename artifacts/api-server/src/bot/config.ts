@@ -1,14 +1,13 @@
 export interface GuildConfig {
   adsChannelId: string;
   controlImageUrl?: string;
+  ticketCategoryId?: string;
 }
-
-const DEFAULT_ADS_CHANNEL = "";
 
 const store = new Map<string, GuildConfig>();
 
 export function getConfig(guildId: string): GuildConfig {
-  return store.get(guildId) ?? { adsChannelId: DEFAULT_ADS_CHANNEL };
+  return store.get(guildId) ?? { adsChannelId: "" };
 }
 
 export function setConfig(guildId: string, config: Partial<GuildConfig>): void {
