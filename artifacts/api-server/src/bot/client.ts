@@ -22,6 +22,7 @@ export const client = new Client({
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMembers,
     GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.GuildPresences,
     GatewayIntentBits.MessageContent,
     GatewayIntentBits.DirectMessages,
   ],
@@ -52,10 +53,7 @@ export async function registerCommands(commandList: BotCommand[]) {
   const guildId = process.env["DISCORD_GUILD_ID"];
 
   if (guildId) {
-    // حذف الأوامر العالمية القديمة
     await rest.put(Routes.applicationCommands(appId), { body: [] });
-
-    // تسجيل الأوامر على السيرفر فقط (فوري)
     await rest.put(Routes.applicationGuildCommands(appId, guildId), {
       body: commandList.map((c) => c.data.toJSON()),
     });
@@ -64,6 +62,6 @@ export async function registerCommands(commandList: BotCommand[]) {
     await rest.put(Routes.applicationCommands(appId), {
       body: commandList.map((c) => c.data.toJSON()),
     });
-    logger.info({ count: commandList.length }, "Slash commands registered globally (up to 1 hour delay)");
+    logger.info({ count: commandList.length }, "Slash commands registered globally");
   }
 }
