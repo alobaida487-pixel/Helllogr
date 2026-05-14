@@ -442,18 +442,10 @@ client.on(Events.InteractionCreate, async (interaction: Interaction) => {
       return;
     }
 
-    const embedProfile = new EmbedBuilder()
-      .setDescription("🖼️ صورة البروفايل:")
-      .setImage(entry.profileUrl)
-      .setColor(0x57f287);
+    const profileFile = new AttachmentBuilder(entry.profileUrl, { name: "profile.png" });
+    const bannerFile = new AttachmentBuilder(entry.bannerUrl, { name: "banner.png" });
 
-    const embedBanner = new EmbedBuilder()
-      .setDescription("🖼️ صورة البنر:")
-      .setImage(entry.bannerUrl)
-      .setColor(0x57f287);
-
-    await interaction.reply({ embeds: [embedProfile], ephemeral: true });
-    await interaction.followUp({ embeds: [embedBanner], ephemeral: true });
+    await interaction.reply({ files: [profileFile, bannerFile], ephemeral: true });
     return;
   }
 

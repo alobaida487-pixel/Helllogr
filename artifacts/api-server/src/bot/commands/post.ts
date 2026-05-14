@@ -3,7 +3,6 @@ import {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
-  EmbedBuilder,
   AttachmentBuilder,
   PermissionFlagsBits,
   type ChatInputCommandInteraction,
@@ -27,22 +26,10 @@ const data = new SlashCommandBuilder()
   .setDescription("أرسل صورة بروفايل وبنر مع زر للتحميل")
   .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages)
   .addAttachmentOption((opt) =>
-    opt
-      .setName("profile")
-      .setDescription("صورة البروفايل")
-      .setRequired(true),
+    opt.setName("profile").setDescription("صورة البروفايل").setRequired(true),
   )
   .addAttachmentOption((opt) =>
-    opt
-      .setName("banner")
-      .setDescription("صورة البنر")
-      .setRequired(true),
-  )
-  .addStringOption((opt) =>
-    opt
-      .setName("caption")
-      .setDescription("نص يظهر فوق الصور (اختياري)")
-      .setRequired(false),
+    opt.setName("banner").setDescription("صورة البنر").setRequired(true),
   )
   .addStringOption((opt) =>
     opt
@@ -54,15 +41,11 @@ const data = new SlashCommandBuilder()
 const execute = async (interaction: ChatInputCommandInteraction) => {
   const profileAttachment = interaction.options.getAttachment("profile", true);
   const bannerAttachment = interaction.options.getAttachment("banner", true);
-  const caption = interaction.options.getString("caption") ?? "صورك الأصلية:";
   const buttonLabel = interaction.options.getString("button_label") ?? "📥 احصل على صورتك";
 
   for (const att of [profileAttachment, bannerAttachment]) {
     if (!att.contentType?.startsWith("image/")) {
-      await interaction.reply({
-        content: "❌ أحد الملفات المرفقة ليس صورة.",
-        ephemeral: true,
-      });
+      await interaction.reply({ content: "❌ أحد الملفات المرفقة ليس صورة.", ephemeral: true });
       return;
     }
   }
@@ -73,17 +56,8 @@ const execute = async (interaction: ChatInputCommandInteraction) => {
     bannerUrl: bannerAttachment.url,
   });
 
-  const embedCaption = new EmbedBuilder()
-    .setDescription(caption)
-    .setColor(0x5865f2);
-
-  const embedProfile = new EmbedBuilder()
-    .setImage(profileAttachment.url)
-    .setColor(0x5865f2);
-
-  const embedBanner = new EmbedBuilder()
-    .setImage(bannerAttachment.url)
-    .setColor(0x5865f2);
+  const profileFile = new AttachmentBuilder(profileAttachment.url, { name: "profile.png" });
+  const bannerFile = new AttachmentBuilder(bannerAttachment.url, { name: "banner.png" });
 
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
@@ -93,7 +67,7 @@ const execute = async (interaction: ChatInputCommandInteraction) => {
   );
 
   await interaction.reply({
-    embeds: [embedCaption, embedProfile, embedBanner],
+    files: [profileFile, bannerFile],
     components: [row],
   });
 
